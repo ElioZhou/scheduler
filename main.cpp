@@ -39,6 +39,7 @@ public:
     int RT{};//Remaining execution time
     int CBRT{};//Remaining CPU Burst
     int inReady{};//The time point when this process transferred to READY
+    int inRUNNING{};//The time point when this process transferred to RUNNING
     explicit Process(int id) {
         pid = id;
     }
@@ -54,7 +55,6 @@ public:
     int evtTimeStamp;
     int transition;
     int creationTime;
-    int oldStateTime;
     string oldState;
     string newState;
     void init(int time_stamp, int trans, Process* p, int creation_time) {
@@ -262,6 +262,7 @@ public:
         }
     }
 
+
     Process* get_next_process() {
         //get the first not empty queue
         queue<Process*> *first_nonempty_queue = first_nonempty(activeQ);
@@ -337,20 +338,23 @@ void Simulation() {
                     if(current_running_process != nullptr) {
                         // Give back the CB time deducted in the RUNNING state, because RUNNING state will deduct the CB time
                         // immediately after it enters the RUNNING state.
-                        int exec_time;
                         int process_next_event_time = des_layer.get_process_next_event_time( current_running_process->pid);
-                        printf("---> PRIO preemption %d by %d ? %d TS=%d now=%d) --> ", current_running_process->pid,
-                               process_in_event->pid, process_in_event->pid,
-                               process_next_event_time, current_time);
-                        if(process_next_event_time > current_time &&
-                           process_in_event->dynamic_priority > current_running_process->dynamic_priority) {
-                            cout << "YES" << endl;
+                        bool higher_priority = process_in_event->dynamic_priority > current_running_process->dynamic_priority;
+                        bool preempt = process_next_event_time > current_time && higher_priority;
+                        if (verbose)
+                            printf("---> PRIO preemption %d by %d ? %d TS=%d now=%d) --> ", current_running_process->pid,
+                               process_in_event->pid, higher_priority, process_next_event_time, current_time);
+                        if(preempt) {
+                            if (verbose) cout << "YES" << endl;
+                            // Remove the pending event(block, preempt, finished), these events will be removed.
                             des_layer.remove_process_next_event(current_running_process->pid);
                             Event e;
                             e.init(current_time, TRANS_TO_PREEMPT, current_running_process, current_time);
                             e.oldState = "RUNNG";
                             des_layer.put_event(e);
-                        } else cout << "NO" << endl;
+                        } else {
+                            if (verbose) cout << "NO" << endl;
+                        }
                     }
                 }
                 break;
@@ -382,8 +386,9 @@ void Simulation() {
                 //Define how long the process will run this turn
                 int exec_time{};
                 exec_time = min(CPU_burst, quantum);
-                current_running_process->CBRT -= exec_time;
-                current_running_process->RT -= exec_time;
+//                current_running_process->CBRT -= exec_time;
+//                current_running_process->RT -= exec_time;
+                current_running_process->inRUNNING = current_time;
                 //Define when this execution turn finishes
                 int turn_finished_time = exec_time + current_time;
                 //The process will be interrupted before the cpu burst exhausted, if quantum is smaller
@@ -398,7 +403,7 @@ void Simulation() {
                 else {
                     //If remaining time == 0, trans to done
                     //else, trans to block
-                    if (current_running_process->RT == 0) {
+                    if ((current_running_process->RT - exec_time) == 0) {
                         Event e;
                         e.init(turn_finished_time, TRANS_TO_FINISHED, current_running_process, current_time);
                         e.oldState = "RUNNG";
@@ -420,6 +425,9 @@ void Simulation() {
                 oldStatePeriod = current_time - current_event->creationTime;
                 int IO_burst = myrandom(process_in_event->IO);
                 int burst_finished_time = IO_burst + current_time;
+                int exec_time = current_time - process_in_event->inRUNNING;
+                process_in_event->CBRT -= exec_time;
+                process_in_event->RT -= exec_time;
                 if (verbose) {
 //                    current_event->newState = "BLOCK";
                     cout << current_time<<" "<< process_in_event->pid << " "<< oldStatePeriod << ": ";
@@ -443,6 +451,9 @@ void Simulation() {
             case TRANS_TO_PREEMPT: {
                 current_event->newState = "READY ";
                 oldStatePeriod = current_time - current_event->creationTime;
+                int exec_time = current_time - process_in_event->inRUNNING;
+                process_in_event->CBRT -= exec_time;
+                process_in_event->RT -= exec_time;
                 current_running_process = nullptr;
                 if (verbose) {
                     cout <<current_time<<" "<< process_in_event->pid << " "<< oldStatePeriod << ": " << current_event->oldState <<" -> "<< current_event->newState;
@@ -626,17 +637,18 @@ int main(int argc, char *argv[]) {
     Simulation();
 
     //---------------------Statistics---------------------//
-
-    cout << scheduler_type << endl;
-    cout << " pid:   AT   TC   CB   IO PR|    FT    TT    IT    CW" << endl;
+    if(scheduler_type == "FCFS" || scheduler_type == "LCFS" || scheduler_type == "SRTF")
+        cout << scheduler_type << " " << endl;
+    else cout << scheduler_type << " " << quantum << endl;
+//    cout << " pid:   AT   TC   CB   IO PR|    FT    TT    IT    CW" << endl;
     for (int i = 0; i < processes.size(); i++) {
-        printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d", processes[i]->pid,
+        printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", processes[i]->pid,
                processes[i]->AT, processes[i]->TC, processes[i]->CB, processes[i]->IO,
                processes[i]->static_priority, processes[i]->FT, processes[i]->TT,
                processes[i]->IT, processes[i]->CW);
-        cout << "   TT = FT - AT: " << processes[i]->TT - (processes[i]->FT - processes[i]->AT) << "  |  ";
-        cout << "TT = CW + IT + TC: " << processes[i]->TT - (processes[i]->CW + processes[i]->IT + processes[i]->TC)
-             << endl;
+//        cout << "   TT = FT - AT: " << processes[i]->TT - (processes[i]->FT - processes[i]->AT) << "  |  ";
+//        cout << "TT = CW + IT + TC: " << processes[i]->TT - (processes[i]->CW + processes[i]->IT + processes[i]->TC)
+//             << endl;
     }
 //    printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", );
 
