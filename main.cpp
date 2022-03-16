@@ -4,7 +4,6 @@
 #include <list>
 #include <queue>
 #include <unistd.h>
-#include <filesystem>
 
 using namespace std;
 
@@ -55,6 +54,7 @@ public:
     int evtTimeStamp;
     int transition;
     int creationTime;
+    int oldStateTime;
     string oldState;
     string newState;
     void init(int time_stamp, int trans, Process* p, int creation_time) {
@@ -66,9 +66,6 @@ public:
 };
 
 class DES {
-//    （1）如果你需要高效的随即存取，而不在乎插入和删除的效率，使用vector
-//    （2）如果你需要大量的插入和删除，而不关心随机存取，则应使用list
-//    （3）如果你需要随机存取，而且关心两端数据的插入和删除，则应使用deque
 public:
     deque<Event> evtQueue;
 
@@ -89,76 +86,35 @@ public:
         evtQueue.insert(itr, evt);
     }
 
-
     int get_next_event_time() {
         if(evtQueue.empty())
             return -1;
         return evtQueue.front().evtTimeStamp;
     }
-};
 
-//class DES {
-////    （1）如果你需要高效的随即存取，而不在乎插入和删除的效率，使用vector
-////    （2）如果你需要大量的插入和删除，而不关心随机存取，则应使用list
-////    （3）如果你需要随机存取，而且关心两端数据的插入和删除，则应使用deque
-//public:
-//    list<Event*> evtQueue;
-//
-//    Event* get_event() {
-//        if(evtQueue.empty()) {
-//            return nullptr;
-//        }
-//        Event* evt = evtQueue.front();
-//        evtQueue.pop_front();
-//        return evt;
-//    }
-//
-//    void put_event(Event evt) {
-//        auto itr = evtQueue.begin();
-//        while(itr != evtQueue.end() && (*itr)->evtTimeStamp <= evt.evtTimeStamp) {
-//            itr++;
-//        }
-//        evtQueue.insert(itr, &evt);
-//    }
-//
-//
-//    int get_next_event_time() {
-//        if(evtQueue.empty())
-//            return -1;
-//        return evtQueue.front()->evtTimeStamp;
-//    }
-//};
+    int get_process_next_event_time(int pid) {
+        auto it = evtQueue.begin();
+        while(it != evtQueue.end() && it->evtProcess->pid != pid ) {
+            it ++;
+        }
+        if(it->evtProcess->pid == pid) {
+            return it->evtTimeStamp;
+        }
+        else return -1;
+    }
+
+    void remove_process_next_event(int pid) {
+        auto it = evtQueue.begin();
+        while(it != evtQueue.end() && it->evtProcess->pid != pid ) {
+            it ++;
+        }
+        if(it->evtProcess->pid == pid) {
+            evtQueue.erase(it);
+        }
+    }
+};
 
 DES des_layer;
-
-class testDES {
-//    （1）如果你需要高效的随即存取，而不在乎插入和删除的效率，使用vector
-//    （2）如果你需要大量的插入和删除，而不关心随机存取，则应使用list
-//    （3）如果你需要随机存取，而且关心两端数据的插入和删除，则应使用deque
-public:
-    list<string> evtQueue;
-
-    string get_event() {
-        if(evtQueue.empty()) {
-            return "";
-        }
-        string evt = evtQueue.front();
-        evtQueue.pop_front();
-        return evt;
-    }
-
-    void put_event(string evt) {
-        auto itr = evtQueue.begin();
-        while(itr != evtQueue.end() && itr->substr(2,3) <= evt.substr(2,3)) {
-            itr++;
-        }
-        evtQueue.insert(itr,evt);
-    }
-
-    void rm_event() {
-
-    }
-};
 
 class Scheduler{
 public:
@@ -183,7 +139,6 @@ public:
         runQueue.pop_front();
         return proc;
     }
-
 };
 
 class LCFS : public Scheduler {
@@ -229,10 +184,6 @@ public:
     list<Process*> runQueue;
 
     void add_process(Process* proc) {
-//        auto itr = runQueue.begin();
-//        while(itr != runQueue.end() && (*itr)->RT <= proc->RT) {
-//            itr++;
-//        }
         runQueue.push_back(proc);
     }
 
@@ -245,111 +196,80 @@ public:
     }
 };
 
-//class PRIO : public Scheduler {
-//public:
-//    queue<Process*> *activeQ = new queue<Process*> [maxprios];
-//    queue<Process*> *expiredQ = new queue<Process*> [maxprios];
-//
-////    queue<Process*>:iterator it = activeQ.begin();
-//
-//    void add_process(Process* proc) {
-//        if(proc->dynamic_priority < 0) {
-//            //Modify dynamic priority and insert into expiredQ
-//            proc->dynamic_priority = proc->static_priority - 1;
-//            expiredQ[proc->static_priority - 1].push(proc);
-//        }
-//        else {
-//            activeQ[proc->dynamic_priority].push(proc);
-//        }
-//    }
-//
-//    Process* get_next_process() {
-//        //get the first not empty queue
-//        queue<Process*> *first_nonempty_queue = first_nonempty(activeQ);
-//        if(first_nonempty_queue) {
-//            Process* proc = first_nonempty_queue->front();
-//            //After running the process, dynamic_priority --
-//            proc->dynamic_priority --;
-//            first_nonempty_queue->pop();
-//            return proc;
-//        }
-//            //Both activeQ and expiredQ are empty
-//        else if(!first_nonempty(expiredQ)){
-//            return nullptr;
-//        }
-//            //activeQ is empty, expiredQ is not empty
-//        else {
-//            //swap activeQ and expiredQ pointers
-//            auto temp = activeQ;
-//            activeQ = expiredQ;
-//            expiredQ = temp;
-//            return get_next_process();
-//        }
-//    }
-//
-//    queue<Process*>* first_nonempty(queue<Process*> *queue_ptr) {
-//        for(int i = maxprios - 1; i >= 0; i--) {
-////            auto kkk = queue_ptr[i];
-//            if(!(*(queue_ptr+i)).empty()) {
-////                auto its =  queue_ptr[i].front();
-//                return &queue_ptr[i];
-//            }
-//        }
-//
-//        return nullptr;
-//    }
-//};
-
 class PRIO : public Scheduler {
 public:
-//    deque<Process*> *activeQ = new deque<Process*> [maxprios];
-//    deque<Process*> *expiredQ = new deque<Process*> [maxprios];
-    vector<deque<Process*>*> activeQ;
-    vector<deque<Process*>*> expiredQ;
-    vector<int> a;
+    queue<Process*> *activeQ = new queue<Process*> [maxprios];
+    queue<Process*> *expiredQ = new queue<Process*> [maxprios];
 
-    PRIO(){
-        for (int i = 0; i < maxprios; i++) {
-////            a.push_back(1);
-////            deque<Process*> b = new deque<Process*>();
-            activeQ.push_back(new deque<Process*>);
-            expiredQ.push_back(new deque<Process*>);
-            cout << i;
-        }
-        cout << maxprios;
-        cout << "size" << activeQ.size() << endl;
-    }
-//    std::vector<int> myvector (10);
-
-//    queue<Process*>:iterator it = activeQ.begin();
-
-    void add_process(Process* proc) {
-//        int prio = proc->dynamic_priority;
+    void add_process(Process* proc) override{
         if(proc->dynamic_priority < 0) {
             //Modify dynamic priority and insert into expiredQ
-//            prio = proc->static_priority-1;
-//            proc->dynamic_priority = prio;
-//            expiredQ[prio].push_back(proc);
             proc->dynamic_priority = proc->static_priority - 1;
-            expiredQ[proc->static_priority - 1]->push_back(proc);
+            expiredQ[proc->static_priority - 1].push(proc);
         }
         else {
-//            proc->dynamic_priority--;
-//            activeQ[prio].push_back(proc)->
-            activeQ[proc->dynamic_priority]->push_back(proc);
-//            cout << activeQ[proc->dynamic_priority]->front()->pid << endl;
+            activeQ[proc->dynamic_priority].push(proc);
         }
-
     }
 
-    Process* get_next_process() {
+    Process* get_next_process() override {
         //get the first not empty queue
-        deque<Process*> *first_nonempty_queue = first_nonempty(activeQ);
+        queue<Process*> *first_nonempty_queue = first_nonempty(activeQ);
         if(first_nonempty_queue) {
             Process* proc = first_nonempty_queue->front();
             //After running the process, dynamic_priority --
 //            proc->dynamic_priority --;
-            first_nonempty_queue->pop_front();
+            first_nonempty_queue->pop();
+            return proc;
+        }
+            //Both activeQ and expiredQ are empty
+        else if(!first_nonempty(expiredQ)){
+            return nullptr;
+        }
+            //activeQ is empty, expiredQ is not empty
+        else {
+            //swap activeQ and expiredQ pointers
+            auto temp = activeQ;
+            activeQ = expiredQ;
+            expiredQ = temp;
+            return get_next_process();
+        }
+    }
+
+    queue<Process*>* first_nonempty(queue<Process*> *queue_ptr) {
+        for(int i = maxprios - 1; i >= 0; i--) {
+            if(!(*(queue_ptr+i)).empty()) {
+                return &queue_ptr[i];
+            }
+        }
+        return nullptr;
+    }
+};
+
+class PREPRIO : public Scheduler {
+public:
+    queue<Process*> *activeQ = new queue<Process*> [maxprios];
+    queue<Process*> *expiredQ = new queue<Process*> [maxprios];
+
+    void add_process(Process* proc) override{
+        if(proc->dynamic_priority < 0) {
+            //Modify dynamic priority and insert into expiredQ
+            proc->dynamic_priority = proc->static_priority - 1;
+            expiredQ[proc->static_priority - 1].push(proc);
+        }
+        else {
+            activeQ[proc->dynamic_priority].push(proc);
+        }
+    }
+
+    Process* get_next_process() {
+        //get the first not empty queue
+        queue<Process*> *first_nonempty_queue = first_nonempty(activeQ);
+        if(first_nonempty_queue) {
+            Process* proc = first_nonempty_queue->front();
+            //After running the process, dynamic_priority --
+//            proc->dynamic_priority --;
+            first_nonempty_queue->pop();
             return proc;
         }
         //Both activeQ and expiredQ are empty
@@ -366,157 +286,15 @@ public:
         }
     }
 
-    deque<Process*>* first_nonempty(vector<deque<Process*>*> queue_ptr) {
-        // for loop will work
+    queue<Process*>* first_nonempty(queue<Process*> *queue_ptr) {
         for(int i = maxprios - 1; i >= 0; i--) {
-            if(!queue_ptr[i]->empty()) {
-//                auto its =  queue_ptr[i].front();
-                return queue_ptr[i];
+            if(!(*(queue_ptr+i)).empty()) {
+                return &queue_ptr[i];
             }
         }
-//        deque<Process*>* aaa = queue_ptr[0];
-//        for(auto x : queue_ptr) {
-//            if(!x->empty()) {
-////                cout << x->front()->dynamic_priority << endl;
-//                if (!aaa->empty() && x->front()->dynamic_priority > aaa->front()->dynamic_priority) {
-//                    aaa = x;
-//                } else if(aaa->empty()) {
-//                    aaa = x;
-//                }
-//            }
-//        }
-        // Reversed iterator will work.
-//        std::vector<deque<Process*>*>::reverse_iterator it = queue_ptr.rbegin();
-//        while (it != queue_ptr.rend())
-//        {
-//            if(!(*it)->empty()) {
-//                return *it;
-//            }
-//            it++;
-//        }
-        // iterator will not work,SEGFAULT
-//        std::vector<deque<Process*>*>::iterator it = queue_ptr.end();
-//        while (it != queue_ptr.begin())
-//        {
-//            if(!(*it)->empty()) {
-//                return *it;
-//            }
-//            it--;
-//        }
         return nullptr;
-//        if(aaa->empty()) return nullptr;
-//        else return aaa;
     }
 };
-
-//class PRIO : public Scheduler {
-//public:
-//    list<Process*> *activeQ = new list<Process*> [maxprios];
-//    list<Process*> *expiredQ = new list<Process*> [maxprios];
-//
-//    void add_process(Process* proc) {
-//        if(proc->dynamic_priority < 0) {
-//            //Modify dynamic priority and insert into expiredQ
-//            proc->dynamic_priority = proc->static_priority - 1;
-//            expiredQ[proc->static_priority - 1].push_back(proc);
-//        }
-//        else {
-//            auto list_tmp = activeQ[proc->dynamic_priority];
-//            list_tmp.push_back(proc);
-//        }
-//    }
-//
-//    Process* get_next_process() {
-//        //get the first not empty queue
-//        list<Process*> *first_nonempty_queue = first_nonempty(activeQ);
-//        if(first_nonempty_queue) {
-//            Process* proc = first_nonempty_queue->front();
-//            //After running the process, dynamic_priority --
-//            proc->dynamic_priority --;
-//            first_nonempty_queue->pop_front();
-//            return proc;
-//        }
-//            //Both activeQ and expiredQ are empty
-//        else if(!first_nonempty(expiredQ)){
-//            return nullptr;
-//        }
-//            //activeQ is empty, expiredQ is not empty
-//        else {
-//            //swap activeQ and expiredQ pointers
-//            auto temp = activeQ;
-//            activeQ = expiredQ;
-//            expiredQ = temp;
-//            return get_next_process();
-//        }
-//    }
-//
-//    list<Process*>* first_nonempty(list<Process*> *queue_ptr) {
-//        for(int i = maxprios - 1; i >= 0; i--) {
-////            auto kkk = queue_ptr[i];
-//            if(!(*(queue_ptr+i)).size() == 0) {
-////                auto its =  queue_ptr[i].front();
-//                return &queue_ptr[i];
-//            }
-//        }
-//
-//        return nullptr;
-//    }
-//};
-
-//class PREPRIO : public Scheduler {
-//public:
-//    queue<Process*> *activeQ = new queue<Process*> [maxprios];
-//    queue<Process*> *expiredQ = new queue<Process*> [maxprios];
-//
-//    void add_process(Process* proc) {
-//        if(proc->dynamic_priority < 0) {
-//            //Modify dynamic priority and insert into expiredQ
-//            proc->dynamic_priority = proc->static_priority - 1;
-//            expiredQ[proc->static_priority - 1].push(proc);
-//        }
-//        else {
-//
-//        }
-//    }
-//
-//    Process* get_next_process() {
-//        //get the first not empty queue
-//        auto first_nonempty_queue = first_nonempty(activeQ);
-//        if(first_nonempty_queue) {
-//            Process* proc = first_nonempty_queue->front();
-//            first_nonempty_queue->pop();
-//        }
-//            //activeQ is empty
-//        else {
-//            //swap activeQ and expiredQ pointers
-//            auto temp = activeQ;
-//            activeQ = expiredQ;
-//            expiredQ = temp;
-//            return get_next_process();
-//        }
-//    }
-//
-//    queue<Process*>* first_nonempty(queue<Process*> *queue_ptr) {
-//        for(int i = 0; i < maxprios; i++)
-//            if(!queue_ptr[i].empty())
-//                return queue_ptr + i;
-//        return nullptr;
-//    }
-//};
-
-void des_test() {
-    ifstream testFile("/Users/ethan/Documents/NYU/22 Spring/Operating Systems/Labs/Lab2/lab2_assign/des_test");
-    string teststr;
-    testDES testdes;
-    while(getline(testFile, teststr))
-        testdes.put_event(teststr);
-    string str = testdes.get_event();
-    while(str != "") {
-        cout << str << endl;
-        str = testdes.get_event();
-    }
-    testFile.close();
-}
 
 int myrandom(int burst){
     if(ofs == randvec.size()) {
@@ -543,10 +321,11 @@ void Simulation() {
 
         switch(transition) {
             case TRANS_TO_READY: {
-                current_event->newState = "READY";
+                current_event->newState = "READY ";
                 oldStatePeriod = current_time - current_event->creationTime;
                 scheduler->add_process(process_in_event);
                 process_in_event->inReady = current_time;
+
 //                cout << "Process " << process_in_event->pid << " is ready in " << current_time << endl;
                 // call scheduler
                 CALL_SCHEDULER = true;
@@ -554,12 +333,32 @@ void Simulation() {
                     cout << current_time << " " << process_in_event->pid << " " ;
                     cout << oldStatePeriod << ": " << current_event->oldState << " -> " << current_event->newState << endl;
                 }
+                if(scheduler_type == "PREPRIO") {
+                    if(current_running_process != nullptr) {
+                        // Give back the CB time deducted in the RUNNING state, because RUNNING state will deduct the CB time
+                        // immediately after it enters the RUNNING state.
+                        int exec_time;
+                        int process_next_event_time = des_layer.get_process_next_event_time( current_running_process->pid);
+                        printf("---> PRIO preemption %d by %d ? %d TS=%d now=%d) --> ", current_running_process->pid,
+                               process_in_event->pid, process_in_event->pid,
+                               process_next_event_time, current_time);
+                        if(process_next_event_time > current_time &&
+                           process_in_event->dynamic_priority > current_running_process->dynamic_priority) {
+                            cout << "YES" << endl;
+                            des_layer.remove_process_next_event(current_running_process->pid);
+                            Event e;
+                            e.init(current_time, TRANS_TO_PREEMPT, current_running_process, current_time);
+                            e.oldState = "RUNNG";
+                            des_layer.put_event(e);
+                        } else cout << "NO" << endl;
+                    }
+                }
                 break;
             }
             case TRANS_TO_RUN: {
 //                One trick to deal with schedulers is to treat non-preemptive scheduler as preemptive with very large
 //                quantum that will never fire (10K is good for our simulation).
-                current_event->newState = "RUNNING";
+                current_event->newState = "RUNNG";
                 oldStatePeriod = current_time - process_in_event->inReady;
                 //Set current running process
                 current_running_process = process_in_event;
@@ -592,23 +391,23 @@ void Simulation() {
                 if (quantum < CPU_burst) {
                     Event e;
                     e.init(turn_finished_time, TRANS_TO_PREEMPT, current_running_process, current_time);
-                    e.oldState = "RUNNING";
+                    e.oldState = "RUNNG";
                     des_layer.put_event(e);
                 }
-                //The  process will not be interrupted
+                    //The  process will not be interrupted
                 else {
                     //If remaining time == 0, trans to done
                     //else, trans to block
                     if (current_running_process->RT == 0) {
                         Event e;
                         e.init(turn_finished_time, TRANS_TO_FINISHED, current_running_process, current_time);
-                        e.oldState = "RUNNING";
+                        e.oldState = "RUNNG";
                         des_layer.put_event(e);
                     }
                     else {
                         Event e;
                         e.init(turn_finished_time, TRANS_TO_BLOCK, current_running_process, current_time);
-                        e.oldState = "RUNNING";
+                        e.oldState = "RUNNG";
                         des_layer.put_event(e);
                     }
                 }
@@ -642,7 +441,7 @@ void Simulation() {
                 break;
             }
             case TRANS_TO_PREEMPT: {
-                current_event->newState = "PREEMPT";
+                current_event->newState = "READY ";
                 oldStatePeriod = current_time - current_event->creationTime;
                 current_running_process = nullptr;
                 if (verbose) {
@@ -756,7 +555,8 @@ int main(int argc, char *argv[]) {
                     scheduler_type = "PRIO";
                     scheduler = new PRIO();
                 } else if(optarg[0] == 'E') {
-
+                    scheduler_type = "PREPRIO";
+                    scheduler = new PREPRIO();
                 }
                 break;
             }
@@ -840,8 +640,8 @@ int main(int argc, char *argv[]) {
     }
 //    printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", );
 
-        //---------------------DES test---------------------//
+    //---------------------DES test---------------------//
 
 //    des_test();
-        return 0;
+    return 0;
 }
