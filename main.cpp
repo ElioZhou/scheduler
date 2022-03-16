@@ -299,37 +299,64 @@ public:
 //        return nullptr;
 //    }
 //};
+
 class PRIO : public Scheduler {
 public:
-    queue<Process*> *activeQ = new queue<Process*> [maxprios];
-    queue<Process*> *expiredQ = new queue<Process*> [maxprios];
+//    deque<Process*> *activeQ = new deque<Process*> [maxprios];
+//    deque<Process*> *expiredQ = new deque<Process*> [maxprios];
+    vector<deque<Process*>*> activeQ;
+    vector<deque<Process*>*> expiredQ;
+    vector<int> a;
+
+    PRIO(){
+        for (int i = 0; i < maxprios; i++) {
+////            a.push_back(1);
+////            deque<Process*> b = new deque<Process*>();
+            activeQ.push_back(new deque<Process*>);
+            expiredQ.push_back(new deque<Process*>);
+            cout << i;
+        }
+        cout << maxprios;
+        cout << "size" << activeQ.size() << endl;
+    }
+//    std::vector<int> myvector (10);
+
+//    queue<Process*>:iterator it = activeQ.begin();
 
     void add_process(Process* proc) {
+//        int prio = proc->dynamic_priority;
         if(proc->dynamic_priority < 0) {
             //Modify dynamic priority and insert into expiredQ
+//            prio = proc->static_priority-1;
+//            proc->dynamic_priority = prio;
+//            expiredQ[prio].push_back(proc);
             proc->dynamic_priority = proc->static_priority - 1;
-            expiredQ[proc->static_priority - 1].push(proc);
+            expiredQ[proc->static_priority - 1]->push_back(proc);
         }
         else {
-            activeQ[proc->dynamic_priority].push(proc);
+//            proc->dynamic_priority--;
+//            activeQ[prio].push_back(proc)->
+            activeQ[proc->dynamic_priority]->push_back(proc);
+//            cout << activeQ[proc->dynamic_priority]->front()->pid << endl;
         }
+
     }
 
     Process* get_next_process() {
         //get the first not empty queue
-        queue<Process*> *first_nonempty_queue = first_nonempty(activeQ);
+        deque<Process*> *first_nonempty_queue = first_nonempty(activeQ);
         if(first_nonempty_queue) {
             Process* proc = first_nonempty_queue->front();
             //After running the process, dynamic_priority --
 //            proc->dynamic_priority --;
-            first_nonempty_queue->pop();
+            first_nonempty_queue->pop_front();
             return proc;
         }
-            //Both activeQ and expiredQ are empty
+        //Both activeQ and expiredQ are empty
         else if(!first_nonempty(expiredQ)){
             return nullptr;
         }
-            //activeQ is empty, expiredQ is not empty
+        //activeQ is empty, expiredQ is not empty
         else {
             //swap activeQ and expiredQ pointers
             auto temp = activeQ;
@@ -339,124 +366,48 @@ public:
         }
     }
 
-    queue<Process*>* first_nonempty(queue<Process*> *queue_ptr) {
+    deque<Process*>* first_nonempty(vector<deque<Process*>*> queue_ptr) {
+        // for loop will work
         for(int i = maxprios - 1; i >= 0; i--) {
-            if(!(*(queue_ptr+i)).size() == 0) {
-                return &queue_ptr[i];
+            if(!queue_ptr[i]->empty()) {
+//                auto its =  queue_ptr[i].front();
+                return queue_ptr[i];
             }
         }
-        return nullptr;
-    }
-};
-
-//class PRIO : public Scheduler {
-//public:
-////    deque<Process*> *activeQ = new deque<Process*> [maxprios];
-////    deque<Process*> *expiredQ = new deque<Process*> [maxprios];
-//    vector<deque<Process*>*> activeQ;
-//    vector<deque<Process*>*> expiredQ;
-//    vector<int> a;
-//
-//    PRIO(){
-//        for (int i = 0; i < maxprios; i++) {
-//////            a.push_back(1);
-//////            deque<Process*> b = new deque<Process*>();
-//            activeQ.push_back(new deque<Process*>);
-//            expiredQ.push_back(new deque<Process*>);
-//            cout << i;
-//        }
-//        cout << maxprios;
-//        cout << "size" << activeQ.size() << endl;
-//    }
-////    std::vector<int> myvector (10);
-//
-////    queue<Process*>:iterator it = activeQ.begin();
-//
-//    void add_process(Process* proc) {
-////        int prio = proc->dynamic_priority;
-//        if(proc->dynamic_priority < 0) {
-//            //Modify dynamic priority and insert into expiredQ
-////            prio = proc->static_priority-1;
-////            proc->dynamic_priority = prio;
-////            expiredQ[prio].push_back(proc);
-//            proc->dynamic_priority = proc->static_priority - 1;
-//            expiredQ[proc->static_priority - 1]->push_back(proc);
-//        }
-//        else {
-////            proc->dynamic_priority--;
-////            activeQ[prio].push_back(proc)->
-//            activeQ[proc->dynamic_priority]->push_back(proc);
-////            cout << activeQ[proc->dynamic_priority]->front()->pid << endl;
-//        }
-//
-//    }
-//
-//    Process* get_next_process() {
-//        //get the first not empty queue
-//        deque<Process*> *first_nonempty_queue = first_nonempty(activeQ);
-//        if(first_nonempty_queue) {
-//            Process* proc = first_nonempty_queue->front();
-//            //After running the process, dynamic_priority --
-////            proc->dynamic_priority --;
-//            first_nonempty_queue->pop_front();
-//            return proc;
-//        }
-//        //Both activeQ and expiredQ are empty
-//        else if(!first_nonempty(expiredQ)){
-//            return nullptr;
-//        }
-//        //activeQ is empty, expiredQ is not empty
-//        else {
-//            //swap activeQ and expiredQ pointers
-//            auto temp = activeQ;
-//            activeQ = expiredQ;
-//            expiredQ = temp;
-//            return get_next_process();
-//        }
-//    }
-//
-//    deque<Process*>* first_nonempty(vector<deque<Process*>*> queue_ptr) {
-//        // for loop will work
-//        for(int i = maxprios - 1; i >= 0; i--) {
-//            if(!queue_ptr[i]->empty()) {
-////                auto its =  queue_ptr[i].front();
-//                return queue_ptr[i];
+//        deque<Process*>* aaa = queue_ptr[0];
+//        for(auto x : queue_ptr) {
+//            if(!x->empty()) {
+////                cout << x->front()->dynamic_priority << endl;
+//                if (!aaa->empty() && x->front()->dynamic_priority > aaa->front()->dynamic_priority) {
+//                    aaa = x;
+//                } else if(aaa->empty()) {
+//                    aaa = x;
+//                }
 //            }
 //        }
-////        deque<Process*>* aaa = queue_ptr[0];
-////        for(auto x : queue_ptr) {
-////            if(!x->empty()) {
-//////                cout << x->front()->dynamic_priority << endl;
-////                if (!aaa->empty() && x->front()->dynamic_priority > aaa->front()->dynamic_priority) {
-////                    aaa = x;
-////                } else if(aaa->empty()) {
-////                    aaa = x;
-////                }
-////            }
-////        }
-//        // Reversed iterator will work.
-////        std::vector<deque<Process*>*>::reverse_iterator it = queue_ptr.rbegin();
-////        while (it != queue_ptr.rend())
-////        {
-////            if(!(*it)->empty()) {
-////                return *it;
-////            }
-////            it++;
-////        }
-//        // iterator will not work,SEGFAULT
-////        std::vector<deque<Process*>*>::iterator it = queue_ptr.end();
-////        while (it != queue_ptr.begin())
-////        {
-////            if(!(*it)->empty()) {
-////                return *it;
-////            }
-////            it--;
-////        }
-//        return nullptr;
-////        if(aaa->empty()) return nullptr;
-////        else return aaa;
-//    }
-//};
+        // Reversed iterator will work.
+//        std::vector<deque<Process*>*>::reverse_iterator it = queue_ptr.rbegin();
+//        while (it != queue_ptr.rend())
+//        {
+//            if(!(*it)->empty()) {
+//                return *it;
+//            }
+//            it++;
+//        }
+        // iterator will not work,SEGFAULT
+//        std::vector<deque<Process*>*>::iterator it = queue_ptr.end();
+//        while (it != queue_ptr.begin())
+//        {
+//            if(!(*it)->empty()) {
+//                return *it;
+//            }
+//            it--;
+//        }
+        return nullptr;
+//        if(aaa->empty()) return nullptr;
+//        else return aaa;
+    }
+};
 
 //class PRIO : public Scheduler {
 //public:
