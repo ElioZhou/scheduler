@@ -601,13 +601,13 @@ int main(int argc, char *argv[]) {
 //    ifstream inputFile("input0");
 //    ifstream inputFile("/Users/ethan/Documents/NYU/22 Spring/Operating Systems/Labs/Lab2/lab2_assign/input3");
     string token;
-    int i = 0;
+    int index = 0;
     while (inputFile >> token) {
 //        This is not correct, local variables will be deleted when the scope ends.
 //        So the process will always be created at the same address, it'll be overwritten.
 //        Process process1 {i};
 //        cout << &process1 << endl;
-        Process *process = new Process(i);
+        Process *process = new Process(index);
 //        process->set_priority(myrandom(maxprios));
         process->set_priority(myrandom(maxprios));
 
@@ -628,7 +628,7 @@ int main(int argc, char *argv[]) {
         e.oldState = "CREATED";
         des_layer.put_event(e);
         processes.push_back(process);
-        i++;
+        index++;
     }
     inputFile.close();
 
@@ -637,11 +637,21 @@ int main(int argc, char *argv[]) {
     Simulation();
 
     //---------------------Statistics---------------------//
+
     if(scheduler_type == "FCFS" || scheduler_type == "LCFS" || scheduler_type == "SRTF")
         cout << scheduler_type << " " << endl;
     else cout << scheduler_type << " " << quantum << endl;
 //    cout << " pid:   AT   TC   CB   IO PR|    FT    TT    IT    CW" << endl;
-    for (int i = 0; i < processes.size(); i++) {
+    double CPU_used_time = 0;
+    double IO_used_time = 0;
+    double turnaround = 0;
+    double wait_time = 0;
+    double pcount = processes.size();
+    for (int i = 0; i <pcount; i++) {
+        CPU_used_time += processes[i]->TC;
+        IO_used_time += processes[i]->IT;
+        turnaround += processes[i]->TT;
+        wait_time += processes[i]->CW;
         printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", processes[i]->pid,
                processes[i]->AT, processes[i]->TC, processes[i]->CB, processes[i]->IO,
                processes[i]->static_priority, processes[i]->FT, processes[i]->TT,
@@ -650,10 +660,15 @@ int main(int argc, char *argv[]) {
 //        cout << "TT = CW + IT + TC: " << processes[i]->TT - (processes[i]->CW + processes[i]->IT + processes[i]->TC)
 //             << endl;
     }
-//    printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", );
+    int finishing_time = processes[processes.size()-1]->FT;
+    double CPU_util = CPU_used_time / finishing_time;
+    double IO_util = IO_used_time / finishing_time;
+    double avg_turnaround = turnaround / pcount;
+    double avg_wait_time = wait_time / pcount;
+    double throughput = pcount / finishing_time;
 
-    //---------------------DES test---------------------//
+    printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", finishing_time, CPU_util, IO_util,
+           avg_turnaround, avg_wait_time, throughput);
 
-//    des_test();
     return 0;
 }
