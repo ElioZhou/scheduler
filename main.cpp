@@ -13,6 +13,13 @@ vector<string> desvec;
 int ofs = 0;
 int quantum;
 int maxprios = 4;
+int IOcount = 0;
+int IO_busy_TS;
+int IO_idle_TS;
+// BLK->READY, count--; RUN->BLK, count++
+// if(count == 1), IO_busy_TS = current_time
+// if(count == 0), IO_idle_TS = current_time, IO_used_time += (IO_busy_TS - IO_idle_TS)
+double IO_used_time = 0;
 const int TRANS_TO_READY = 1;
 const int TRANS_TO_RUN = 2;
 const int TRANS_TO_BLOCK = 3;
@@ -327,7 +334,13 @@ void Simulation() {
                 oldStatePeriod = current_time - current_event->creationTime;
                 scheduler->add_process(process_in_event);
                 process_in_event->inReady = current_time;
-
+                if(current_event->oldState == "BLOCK") {
+                    IOcount --;
+                    if(IOcount == 0){
+                        IO_idle_TS = current_time;
+                        IO_used_time += (IO_idle_TS - IO_busy_TS);
+                    }
+                }
 //                cout << "Process " << process_in_event->pid << " is ready in " << current_time << endl;
                 // call scheduler
                 CALL_SCHEDULER = true;
@@ -424,6 +437,11 @@ void Simulation() {
                 int IO_burst = myrandom(process_in_event->IO);
                 int burst_finished_time = IO_burst + current_time;
                 int exec_time = current_time - process_in_event->inRUNNING;
+                IOcount ++;
+                if(IOcount == 1){
+                    IO_busy_TS = current_time;
+                }
+
                 process_in_event->CBRT -= exec_time;
                 process_in_event->RT -= exec_time;
                 if (verbose) {
@@ -617,13 +635,13 @@ int main(int argc, char *argv[]) {
         cout << scheduler_type << " " << endl;
     else cout << scheduler_type << " " << quantum << endl;
     double CPU_used_time = 0;
-    double IO_used_time = 0;
     double turnaround = 0;
     double wait_time = 0;
     double pcount = processes.size();
+    int finishing_time = 0;
     for (int i = 0; i <pcount; i++) {
+        finishing_time = max(finishing_time, processes[i]->FT);
         CPU_used_time += processes[i]->TC;
-        IO_used_time += processes[i]->IT;
         turnaround += processes[i]->TT;
         wait_time += processes[i]->CW;
         printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", processes[i]->pid,
@@ -631,12 +649,11 @@ int main(int argc, char *argv[]) {
                processes[i]->static_priority, processes[i]->FT, processes[i]->TT,
                processes[i]->IT, processes[i]->CW);
     }
-    int finishing_time = processes[processes.size()-1]->FT;
-    double CPU_util = CPU_used_time / finishing_time / 100;
-    double IO_util = IO_used_time / finishing_time / 100;
+    double CPU_util = CPU_used_time / (double)finishing_time * 100;
+    double IO_util = IO_used_time / (double)finishing_time * 100;
     double avg_turnaround = turnaround / pcount;
     double avg_wait_time = wait_time / pcount;
-    double throughput = pcount / finishing_time / 100;
+    double throughput = pcount / (double)finishing_time * 100;
 
     printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", finishing_time, CPU_util, IO_util,
            avg_turnaround, avg_wait_time, throughput);
