@@ -19,7 +19,7 @@ int IO_idle_TS;
 // BLK->READY, count--; RUN->BLK, count++
 // if(count == 1), IO_busy_TS = current_time
 // if(count == 0), IO_idle_TS = current_time, IO_used_time += (IO_busy_TS - IO_idle_TS)
-double IO_used_time = 0;
+int IO_used_time = 0;
 const int TRANS_TO_READY = 1;
 const int TRANS_TO_RUN = 2;
 const int TRANS_TO_BLOCK = 3;
@@ -634,10 +634,10 @@ int main(int argc, char *argv[]) {
     if(scheduler_type == "FCFS" || scheduler_type == "LCFS" || scheduler_type == "SRTF")
         cout << scheduler_type << " " << endl;
     else cout << scheduler_type << " " << quantum << endl;
-    double CPU_used_time = 0;
-    double turnaround = 0;
-    double wait_time = 0;
-    double pcount = processes.size();
+    int CPU_used_time = 0;
+    int turnaround = 0;
+    int wait_time = 0;
+    int pcount = processes.size();
     int finishing_time = 0;
     for (int i = 0; i <pcount; i++) {
         finishing_time = max(finishing_time, processes[i]->FT);
@@ -651,8 +651,8 @@ int main(int argc, char *argv[]) {
     }
     double CPU_util = CPU_used_time / (double)finishing_time * 100;
     double IO_util = IO_used_time / (double)finishing_time * 100;
-    double avg_turnaround = turnaround / pcount;
-    double avg_wait_time = wait_time / pcount;
+    double avg_turnaround = turnaround / (double)pcount;
+    double avg_wait_time = wait_time / (double)pcount;
     double throughput = pcount / (double)finishing_time * 100;
 
     printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", finishing_time, CPU_util, IO_util,
