@@ -20,6 +20,7 @@ const int TRANS_TO_PREEMPT = 4;
 const int TRANS_TO_FINISHED = 5;
 bool CALL_SCHEDULER = false;
 bool verbose = false;
+bool p = false;
 string scheduler_type;
 
 class Process {
@@ -341,11 +342,11 @@ void Simulation() {
                         int process_next_event_time = des_layer.get_process_next_event_time( current_running_process->pid);
                         bool higher_priority = process_in_event->dynamic_priority > current_running_process->dynamic_priority;
                         bool preempt = process_next_event_time > current_time && higher_priority;
-                        if (verbose)
+                        if (p)
                             printf("---> PRIO preemption %d by %d ? %d TS=%d now=%d) --> ", current_running_process->pid,
                                process_in_event->pid, higher_priority, process_next_event_time, current_time);
                         if(preempt) {
-                            if (verbose) cout << "YES" << endl;
+                            if (p) cout << "YES" << endl;
                             // Remove the pending event(block, preempt, finished), these events will be removed.
                             des_layer.remove_process_next_event(current_running_process->pid);
                             Event e;
@@ -353,7 +354,7 @@ void Simulation() {
                             e.oldState = "RUNNG";
                             des_layer.put_event(e);
                         } else {
-                            if (verbose) cout << "NO" << endl;
+                            if (p) cout << "NO" << endl;
                         }
                     }
                 }
@@ -386,8 +387,6 @@ void Simulation() {
                 //Define how long the process will run this turn
                 int exec_time{};
                 exec_time = min(CPU_burst, quantum);
-//                current_running_process->CBRT -= exec_time;
-//                current_running_process->RT -= exec_time;
                 current_running_process->inRUNNING = current_time;
                 //Define when this execution turn finishes
                 int turn_finished_time = exec_time + current_time;
@@ -417,7 +416,6 @@ void Simulation() {
                     }
                 }
                 current_running_process->CW += (current_time - current_running_process->inReady);
-//                cout << "Process " << process_in_event->pid << " starts to run in " << current_time << endl;
                 break;
             }
             case TRANS_TO_BLOCK: {
@@ -429,7 +427,6 @@ void Simulation() {
                 process_in_event->CBRT -= exec_time;
                 process_in_event->RT -= exec_time;
                 if (verbose) {
-//                    current_event->newState = "BLOCK";
                     cout << current_time<<" "<< process_in_event->pid << " "<< oldStatePeriod << ": ";
                     cout << current_event->oldState <<" -> " << current_event->newState;
                     cout << " ib="<< IO_burst <<" rem="<< process_in_event->RT << endl;
@@ -443,7 +440,6 @@ void Simulation() {
                 current_running_process = nullptr;
                 process_in_event->dynamic_priority = process_in_event->static_priority-1;//when a processes returns from I/O, reset dynamic_priority
                 process_in_event->IT += IO_burst;
-//                cout << "Process " << process_in_event->pid << " is blocked in " << current_time << endl;
                 CALL_SCHEDULER = true;
 
                 break;
@@ -462,10 +458,7 @@ void Simulation() {
                 process_in_event->dynamic_priority --;
                 scheduler->add_process(process_in_event);
                 process_in_event->inReady = current_time;
-//
                 CALL_SCHEDULER = true;
-
-//                process_in_event->dynamic_priority --;
                 break;
             }
             case TRANS_TO_FINISHED: {
@@ -474,7 +467,6 @@ void Simulation() {
                 current_running_process = nullptr;
                 process_in_event->FT = current_time;
                 process_in_event->TT = current_time - process_in_event->AT;
-//                cout << "Process " << process_in_event->pid << " is finished in " << current_time << endl;
                 CALL_SCHEDULER = true;
                 if (verbose) {
                     cout << current_time<<" "<< process_in_event->pid <<" "<< oldStatePeriod << ": " << current_event->newState<<endl;
@@ -512,10 +504,9 @@ int main(int argc, char *argv[]) {
      * 4: In Simulation, get event, and call scheduler according to different types of transition
      */
     vector<Process *> processes;
-//    string scheduler_type;
-
 
     //---------------------read parameter---------------------//
+
     int c;
     int count = 0;
     while ((c = getopt (argc, argv, "vteps::")) != -1) {
@@ -532,10 +523,7 @@ int main(int argc, char *argv[]) {
                 // “-e” shows the eventQ before and after an event is inserted
                 break;
             case 'p':
-                //“-p” shows for the E scheduler the
-                //decision when a unblocked process attempts to preempt a running process.
-                //Remember two conditions must be met (higher prio and
-                //pending event of the currently running process is in the future, not now
+                p = true;
                 break;
             case 's':{
                 size_t pos = 0;
@@ -577,29 +565,16 @@ int main(int argc, char *argv[]) {
     }
 
     //---------------------read rfile---------------------//
-    ifstream randFile(argv[count + 2]);
-//    std::__fs::filesystem::path p = std::__fs::filesystem::current_path();
 
-//    std::cout << "The current path " << p;
-//    ifstream randFile("../../lab2_assign/rfile");
-//    ifstream randFile("/Users/ethan/Documents/NYU/22 Spring/Operating Systems/Labs/Lab2/lab2_assign/rfile");
+    ifstream randFile(argv[count + 2]);
     string randstr;
     while (randFile >> randstr)
         randvec.push_back(stoi(randstr, nullptr, 10));
     randFile.close();
 
-    //---------------------Set scheduler---------------------//
-
-//        scheduler = new FCFS();quantum = 10000;scheduler_type = "FCFS";
-//        scheduler = new LCFS();quantum = 10000;scheduler_type = "LCFS";
-//        scheduler = new SRTF();scheduler_type = "SRTF";quantum = 10000;
-//        scheduler = new RR();scheduler_type = "RR";quantum = 2;
-//    scheduler = new PRIO(); scheduler_type = "PRIO"; quantum = 50; maxprios = 10;
-
     //---------------------read input processes file---------------------//
+
     ifstream inputFile(argv[count + 1]);
-//    ifstream inputFile("input0");
-//    ifstream inputFile("/Users/ethan/Documents/NYU/22 Spring/Operating Systems/Labs/Lab2/lab2_assign/input3");
     string token;
     int index = 0;
     while (inputFile >> token) {
@@ -641,7 +616,6 @@ int main(int argc, char *argv[]) {
     if(scheduler_type == "FCFS" || scheduler_type == "LCFS" || scheduler_type == "SRTF")
         cout << scheduler_type << " " << endl;
     else cout << scheduler_type << " " << quantum << endl;
-//    cout << " pid:   AT   TC   CB   IO PR|    FT    TT    IT    CW" << endl;
     double CPU_used_time = 0;
     double IO_used_time = 0;
     double turnaround = 0;
@@ -656,16 +630,13 @@ int main(int argc, char *argv[]) {
                processes[i]->AT, processes[i]->TC, processes[i]->CB, processes[i]->IO,
                processes[i]->static_priority, processes[i]->FT, processes[i]->TT,
                processes[i]->IT, processes[i]->CW);
-//        cout << "   TT = FT - AT: " << processes[i]->TT - (processes[i]->FT - processes[i]->AT) << "  |  ";
-//        cout << "TT = CW + IT + TC: " << processes[i]->TT - (processes[i]->CW + processes[i]->IT + processes[i]->TC)
-//             << endl;
     }
     int finishing_time = processes[processes.size()-1]->FT;
-    double CPU_util = CPU_used_time / finishing_time;
-    double IO_util = IO_used_time / finishing_time;
+    double CPU_util = CPU_used_time / finishing_time / 100;
+    double IO_util = IO_used_time / finishing_time / 100;
     double avg_turnaround = turnaround / pcount;
     double avg_wait_time = wait_time / pcount;
-    double throughput = pcount / finishing_time;
+    double throughput = pcount / finishing_time / 100;
 
     printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", finishing_time, CPU_util, IO_util,
            avg_turnaround, avg_wait_time, throughput);
